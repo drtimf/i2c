@@ -1,0 +1,8 @@
+homekitdeviceid: TF0X
+enablelifx: true
+enabletmp117: false
+enableveml6030: false
+enablevl53l1x: false
+enablems5637: false
+enablebme280: false
+enableoled: false

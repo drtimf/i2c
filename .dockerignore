@@ -1,0 +1,6 @@
+config
+protos
+Makefile
+*.go
+*.mod
+*.sum
