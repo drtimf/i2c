@@ -169,13 +169,22 @@ func main() {
 			bme280pressure -= 1.4
 		}
 
+		var pubTemp, pubPressure float64
+		if config.EnableTMP117 {
+			pubTemp = tempC
+		} else if config.EnableBME280 {
+			pubTemp = bme280temp
+		}
+
+		if config.EnableMS5637 {
+			pubPressure = pressure
+		} else if config.EnableBME280 {
+			pubPressure = bme280pressure
+		}
+
 		prom.SetHumidity(bme280humidity)
 
-		if config.EnableBME280 {
-			hkb.SetTemperature(bme280temp)
-		} else {
-			hkb.SetTemperature(tempC)
-		}
+		hkb.SetTemperature(pubTemp)
 		hkb.SetLightLevel(light)
 		hkb.SetRangeSensor(rng)
 
@@ -188,7 +197,11 @@ func main() {
 		prom.SetPressureBME(bme280pressure)
 		if oled != nil {
 			// oled.WriteOLED(fmt.Sprintf("%.2f C\n%.2f hPa\n%.2f lux", tempC, pressure, light))
-			oled.DisplayTemperature(tempC, fmt.Sprintf("%.2f hPa\n%.2f lux", pressure, light))
+			if config.EnableVEML6030 {
+				oled.DisplayTemperature(pubTemp, fmt.Sprintf("%.2f hPa\n%.2f lux", pubPressure, light))
+			} else {
+				oled.DisplayTemperature(pubTemp, fmt.Sprintf("%.2f hPa\n%.2f rH", pubPressure, bme280humidity))
+			}
 		}
 
 		powerState := "n/a"
