@@ -1,8 +1,13 @@
 homekitdeviceid: TF0X
+homekitdevicepin: 12344321
+homekitbridgename: My Bridge
 enablelifx: true
+lifxmac: d0:73:d5:6e:33:86
 enabletmp117: false
 enableveml6030: false
 enablevl53l1x: false
 enablems5637: false
 enablebme280: false
+enablecap1203: false
 enableoled: false
+enableled: false

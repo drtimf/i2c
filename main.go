@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -12,15 +13,20 @@ import (
 )
 
 type I2cConfiguration struct {
-	HomeKitDeviceID  string
-	HomeKitDevicePin uint32
-	EnableLifx       bool
-	EnableTMP117     bool
-	EnableVEML6030   bool
-	EnableVL53L1X    bool
-	EnableMS5637     bool
-	EnableBME280     bool
-	EnableOLED       bool
+	HomeKitDeviceID   string
+	HomeKitDevicePin  uint32
+	HomeKitBridgeName string
+	SampleTime        uint32
+	EnableLifx        bool
+	LifxMAC           string
+	EnableTMP117      bool
+	EnableVEML6030    bool
+	EnableVL53L1X     bool
+	EnableMS5637      bool
+	EnableBME280      bool
+	EnableCAP1203     bool
+	EnableOLED        bool
+	EnableLED         bool
 }
 
 func LoadI2cConfiguration(fileName string) (cfg *I2cConfiguration, err error) {
@@ -43,6 +49,56 @@ func PrintState(device string, status bool) {
 	}
 }
 
+// HSV2RGB calculates the red, green and blue (RGB) values from hue, saturation and value (HSV) values.
+// The hue is 0-360 and the saturation and value are 0-1.
+// The red, green and blue values are 0-1.
+func HSV2RGB(hue, saturation, value float64) (red, green, blue float64) {
+	h := hue
+	if h >= 360.0 {
+		h = 0.0
+	} else {
+		h /= 60.0
+	}
+
+	fract := h - math.Floor(h)
+
+	p := value * (1.0 - saturation)
+	q := value * (1.0 - saturation*fract)
+	t := value * (1.0 - saturation*(1.0-fract))
+
+	if 0.0 <= h && h < 1.0 {
+		red = value
+		green = t
+		blue = p
+	} else if 1.0 <= h && h < 2.0 {
+		red = q
+		green = value
+		blue = p
+	} else if 2.0 <= h && h < 3.0 {
+		red = p
+		green = value
+		blue = t
+	} else if 3.0 <= h && h < 4.0 {
+		red = p
+		green = q
+		blue = value
+	} else if 4.0 <= h && h < 5.0 {
+		red = t
+		green = p
+		blue = value
+	} else if 5.0 <= h && h < 6.0 {
+		red = value
+		green = p
+		blue = q
+	} else {
+		red = 0
+		green = 0
+		blue = 0
+	}
+
+	return
+}
+
 func main() {
 	var err error
 
@@ -54,7 +110,8 @@ func main() {
 
 	fmt.Println("HomeKit bridge device ID:", config.HomeKitDeviceID)
 	var hkb *HomeKitBridge
-	if hkb, err = HomeKitBridgeStart(config.HomeKitDeviceID, config.HomeKitDevicePin); err != nil {
+	if hkb, err = HomeKitBridgeStart(config.HomeKitDeviceID, config.HomeKitDevicePin, config.HomeKitBridgeName,
+		config.EnableTMP117 || config.EnableBME280, config.EnableVEML6030, config.EnableVL53L1X, config.EnableLED); err != nil {
 		fmt.Println(err)
 		return
 	}
@@ -68,12 +125,20 @@ func main() {
 		var bulbs []*golifx.Bulb
 		if bulbs, err = golifx.LookupBulbs(); err == nil && len(bulbs) > 0 {
 			bulb = bulbs[0]
+
+			for _, b := range bulbs {
+				fmt.Println(b)
+				if b.MacAddress() == config.LifxMAC {
+					bulb = b
+				}
+			}
+
 			fmt.Println(bulb.String())
 		}
 	}
 
 	var tmp117 *piicodev.TMP117 = nil
-	PrintState("TMP117 temperature sensor", config.EnableLifx)
+	PrintState("TMP117 temperature sensor", config.EnableTMP117)
 	if config.EnableTMP117 {
 		if tmp117, err = piicodev.NewTMP117(piicodev.TMP117Address, 1); err != nil {
 			fmt.Println(err)
@@ -117,6 +182,15 @@ func main() {
 		}
 	}
 
+	var cap1203 *piicodev.CAP1203 = nil
+	PrintState("CAP1203 pressure sensor", config.EnableCAP1203)
+	if config.EnableCAP1203 {
+		if cap1203, err = piicodev.NewCAP1203(piicodev.CAP1203Address, 1); err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+
 	var oled *OLEDDisplay = nil
 	PrintState("OLED display", config.EnableOLED)
 	if config.EnableOLED {
@@ -125,82 +199,113 @@ func main() {
 		}
 	}
 
+	var led *piicodev.RGBLED = nil
+	PrintState("RGB LED", config.EnableLED)
+	if config.EnableLED {
+		if led, err = piicodev.NewRGBLED(piicodev.RGBLEDAddress, 1); err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		led.SetBrightness(255)
+		led.EnablePowerLED(false)
+
+		hkb.OnLampChange(func(hue, saturation float64, brightness int) (err error) {
+			red, green, blue := HSV2RGB(hue, float64(saturation)/100.0, float64(brightness)/100.0)
+			fmt.Printf("Set lamp (%f,%f,%d) -> (%d,%d,%d)\n", hue, saturation, brightness, byte(red*255.0), byte(green*255.0), byte(blue*255.0))
+
+			led.FillPixels(byte(red*255.0), byte(green*255.0), byte(blue*255.0))
+			err = led.Show()
+			return
+		})
+	}
+
+	var pubTemp, pubPressure, pubHumidity, pubLightLevel float64
+
+	var bme280temp, bme280pressure, bme280humidity float64
+	var tmp117temp float64
+	var ms5637pressure, ms5637temperature float64
+	var veml6030light float64
+	var vl53l1xrange uint16
+
 	for {
-		var tempC float64
-		if tmp117 != nil {
-			if tempC, err = tmp117.ReadTempC(); err != nil {
-				fmt.Println(err)
-				return
-			}
-		}
-
-		var light float64
-		if veml6030 != nil {
-			if light, err = veml6030.Read(); err != nil {
-				fmt.Println(err)
-				return
-			}
-		}
-
-		var rng uint16
-		if vl53l1x != nil {
-			if rng, err = vl53l1x.Read(); err != nil {
-				fmt.Println(err)
-				return
-			}
-		}
-
-		var pressure, temperature float64
-		if ms5637 != nil {
-			if pressure, temperature, err = ms5637.Read(); err != nil {
-				fmt.Println(err)
-				return
-			}
-		}
-
-		var bme280temp, bme280pressure, bme280humidity float64
 		if bme280 != nil {
-			if bme280temp, bme280pressure, bme280humidity, err = bme280.Read(); err != nil {
-				fmt.Println(err)
-				return
+			if t, p, h, err := bme280.Read(); err != nil {
+				fmt.Println("ERROR: atmospheric", err)
+			} else {
+				// REVISIT: apply weird offsets relative to other sensors
+				bme280temp = t + 1.0
+				bme280pressure = p - 1.4
+				bme280humidity = h
+
+				pubTemp = bme280temp
+				pubPressure = bme280pressure
+				pubHumidity = bme280humidity
 			}
-			// REVISIT: apply weird offsets relative to other sensors
-			bme280temp += 1.0
-			bme280pressure -= 1.4
 		}
 
-		var pubTemp, pubPressure float64
-		if config.EnableTMP117 {
-			pubTemp = tempC
-		} else if config.EnableBME280 {
-			pubTemp = bme280temp
+		if tmp117 != nil {
+			if t, err := tmp117.ReadTempC(); err != nil {
+				fmt.Println("ERROR: temperature", err)
+			} else {
+				tmp117temp = t
+				pubTemp = tmp117temp
+			}
 		}
 
-		if config.EnableMS5637 {
-			pubPressure = pressure
-		} else if config.EnableBME280 {
-			pubPressure = bme280pressure
+		if ms5637 != nil {
+			if p, t, err := ms5637.Read(); err != nil {
+				fmt.Println("ERROR: pressure", err)
+			} else {
+				ms5637pressure = p
+				ms5637temperature = t
+				pubPressure = ms5637pressure
+			}
 		}
 
-		prom.SetHumidity(bme280humidity)
+		if veml6030 != nil {
+			if l, err := veml6030.Read(); err != nil {
+				fmt.Println("ERROR: light level", err)
+			} else {
+				veml6030light = l
+				pubLightLevel = veml6030light
+			}
+		}
+
+		if vl53l1x != nil {
+			if r, err := vl53l1x.Read(); err != nil {
+				fmt.Println("ERROR: distance", err)
+			} else {
+				vl53l1xrange = r
+			}
+		}
+
+		var capStatus1, capStatus2, capStatus3 bool
+		if cap1203 != nil {
+			if capStatus1, capStatus2, capStatus3, err = cap1203.Read(); err != nil {
+				fmt.Println("ERROR: capacitive touch", err)
+			}
+		}
+
+		prom.SetHumidity(pubHumidity)
 
 		hkb.SetTemperature(pubTemp)
-		hkb.SetLightLevel(light)
-		hkb.SetRangeSensor(rng)
+		hkb.SetLightLevel(pubLightLevel)
+		hkb.SetRangeSensor(vl53l1xrange)
 
-		prom.SetTemperature(tempC)
+		prom.SetTemperature(tmp117temp)
 		prom.SetTemperatureBME(bme280temp)
-		prom.SetTemperatureMS(temperature)
-		prom.SetLightLevel(light)
-		prom.SetRangeSensor(rng)
-		prom.SetPressure(pressure)
+		prom.SetTemperatureMS(ms5637temperature)
+		prom.SetLightLevel(veml6030light)
+		prom.SetRangeSensor(vl53l1xrange)
+		prom.SetPressure(ms5637pressure)
 		prom.SetPressureBME(bme280pressure)
 		if oled != nil {
 			// oled.WriteOLED(fmt.Sprintf("%.2f C\n%.2f hPa\n%.2f lux", tempC, pressure, light))
 			if config.EnableVEML6030 {
-				oled.DisplayTemperature(pubTemp, fmt.Sprintf("%.2f hPa\n%.2f lux", pubPressure, light))
+				oled.DisplayTemperature(pubTemp, fmt.Sprintf("%.2f hPa\n%.2f lux", pubPressure, pubLightLevel))
 			} else {
-				oled.DisplayTemperature(pubTemp, fmt.Sprintf("%.2f hPa\n%.2f rH", pubPressure, bme280humidity))
+				oled.DisplayTemperature(pubTemp, fmt.Sprintf("%.2f hPa\n%.2f rH", pubPressure, pubHumidity))
 			}
 		}
 
@@ -215,10 +320,46 @@ func main() {
 				}
 
 				powerState += fmt.Sprintf("(H: %d, S: %d B: %d, K: %d)", bulbState.Color.Hue, bulbState.Color.Saturation, bulbState.Color.Brightness, bulbState.Color.Kelvin)
+
+				if capStatus1 {
+					if bulbState.Power {
+						fmt.Println("Turn off light")
+						bulb.SetPowerState(false)
+					} else {
+						fmt.Println("Turn on light")
+						bulb.SetPowerState(true)
+					}
+				}
+
+				if capStatus2 {
+					fmt.Println("Low light")
+					bulb.SetColorState(&golifx.HSBK{
+						Hue:        5461,
+						Saturation: 0,
+						Brightness: 47185,
+						Kelvin:     2000,
+					}, 0)
+				}
+
+				if capStatus3 {
+					fmt.Println("Full light")
+					bulb.SetColorState(&golifx.HSBK{
+						Hue:        5461,
+						Saturation: 0,
+						Brightness: 65535,
+						Kelvin:     4000,
+					}, 0)
+				}
 			}
 		}
 
-		fmt.Printf("%.2f hPa, %.2f C | %.2f C | %.2f lux | %d mm | %.2f C, %.2f hPa, %.2f rH | bulb: %s\n", pressure, temperature, tempC, light, rng, bme280temp, bme280pressure, bme280humidity, powerState)
-		time.Sleep(5 * time.Second)
+		fmt.Printf("%.2f hPa, %.2f C | %.2f C | %.2f lux | %d mm | %.2f C, %.2f hPa, %.2f rH | %t,%t,%t | bulb: %s\n",
+			ms5637pressure, ms5637temperature, tmp117temp, veml6030light, vl53l1xrange, bme280temp, bme280pressure, bme280humidity,
+			capStatus1, capStatus2, capStatus3, powerState)
+		if config.SampleTime > 0 {
+			time.Sleep(time.Duration(config.SampleTime) * time.Second)
+		} else {
+			time.Sleep(5 * time.Second)
+		}
 	}
 }

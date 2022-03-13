@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/brutella/hc/accessory"
 	"github.com/skip2/go-qrcode"
 )
 
@@ -15,7 +14,7 @@ const (
 	ACCESSORY_CATEGORY_BRIDGES = 2
 )
 
-func CreateXHMUrl(category accessory.AccessoryType, hapType int, pin uint32, setupID string) (xhm string) {
+func CreateXHMUrl(category byte, hapType int, pin uint32, setupID string) (xhm string) {
 	var payload uint64 = ((uint64(category) << 31) | uint64(pin))
 
 	if hapType == HAP_TYPE_IP_WAC {
