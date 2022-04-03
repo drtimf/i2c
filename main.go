@@ -27,6 +27,7 @@ type I2cConfiguration struct {
 	EnableCAP1203     bool
 	EnableOLED        bool
 	EnableLED         bool
+	EnablePIR         bool
 }
 
 func LoadI2cConfiguration(fileName string) (cfg *I2cConfiguration, err error) {
@@ -111,7 +112,7 @@ func main() {
 	fmt.Println("HomeKit bridge device ID:", config.HomeKitDeviceID)
 	var hkb *HomeKitBridge
 	if hkb, err = HomeKitBridgeStart(config.HomeKitDeviceID, config.HomeKitDevicePin, config.HomeKitBridgeName,
-		config.EnableTMP117 || config.EnableBME280, config.EnableVEML6030, config.EnableVL53L1X, config.EnableLED); err != nil {
+		config.EnableTMP117 || config.EnableBME280, config.EnableVEML6030, config.EnableVL53L1X || config.EnablePIR, config.EnableLED); err != nil {
 		fmt.Println(err)
 		return
 	}
@@ -220,6 +221,15 @@ func main() {
 		})
 	}
 
+	var pir *piicodev.QwiicPIR = nil
+	PrintState("PIR", config.EnablePIR)
+	if config.EnablePIR {
+		if pir, err = piicodev.NewQwiicPIR(piicodev.QwiicPIRAddress, 1); err != nil {
+			fmt.Println(err)
+			return
+		}
+	}
+
 	var pubTemp, pubPressure, pubHumidity, pubLightLevel float64
 
 	var bme280temp, bme280pressure, bme280humidity float64
@@ -227,6 +237,7 @@ func main() {
 	var ms5637pressure, ms5637temperature float64
 	var veml6030light float64
 	var vl53l1xrange uint16
+	var pirMovement int
 
 	for {
 		if bme280 != nil {
@@ -287,11 +298,46 @@ func main() {
 			}
 		}
 
+		if pir != nil {
+			/*
+				var pirDetected, pirRemoved, pirAvailable bool
+				if pirAvailable, pirDetected, pirRemoved, err = pir.GetDebounceEvents(); err != nil {
+					fmt.Println("ERROR: pir", err)
+				}
+
+				if pirAvailable {
+					if pirDetected {
+						pirMovement = 1
+					}
+
+					if pirRemoved {
+						pirMovement = 0
+					}
+				}
+			*/
+
+			var detected bool
+			if detected, err = pir.GetRawReading(); err != nil {
+				fmt.Println("ERROR: pir", err)
+			}
+
+			if detected {
+				pirMovement = 1
+			} else {
+				pirMovement = 0
+			}
+		}
+
 		prom.SetHumidity(pubHumidity)
 
 		hkb.SetTemperature(pubTemp)
 		hkb.SetLightLevel(pubLightLevel)
-		hkb.SetRangeSensor(vl53l1xrange)
+		if config.EnableVL53L1X {
+			hkb.SetRangeSensor(vl53l1xrange)
+		}
+		if config.EnablePIR {
+			hkb.SetMovement(pirMovement)
+		}
 
 		prom.SetTemperature(tmp117temp)
 		prom.SetTemperatureBME(bme280temp)
@@ -353,9 +399,9 @@ func main() {
 			}
 		}
 
-		fmt.Printf("%.2f hPa, %.2f C | %.2f C | %.2f lux | %d mm | %.2f C, %.2f hPa, %.2f rH | %t,%t,%t | bulb: %s\n",
+		fmt.Printf("%.2f hPa, %.2f C | %.2f C | %.2f lux | %d mm | %.2f C, %.2f hPa, %.2f rH | %t,%t,%t | %d | bulb: %s\n",
 			ms5637pressure, ms5637temperature, tmp117temp, veml6030light, vl53l1xrange, bme280temp, bme280pressure, bme280humidity,
-			capStatus1, capStatus2, capStatus3, powerState)
+			capStatus1, capStatus2, capStatus3, pirMovement, powerState)
 		if config.SampleTime > 0 {
 			time.Sleep(time.Duration(config.SampleTime) * time.Second)
 		} else {

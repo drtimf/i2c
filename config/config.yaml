@@ -11,3 +11,4 @@ enablebme280: false
 enablecap1203: false
 enableoled: false
 enableled: false
+enablepir: false

@@ -171,6 +171,12 @@ func (b *HomeKitBridge) SetRangeSensor(dist uint16) {
 	}
 }
 
+func (b *HomeKitBridge) SetMovement(m int) {
+	if b.occupancy != nil {
+		b.occupancy.OccupancySensor.OccupancyDetected.SetValue(m)
+	}
+}
+
 func (b *HomeKitBridge) OnLampChange(fn func(hue, saturation float64, brightness int) (err error)) {
 	b.setLamp = fn
 }
