@@ -1,6 +1,9 @@
 package main
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -9,95 +12,87 @@ import (
 )
 
 type PrometheusSensors struct {
-	temperature    prometheus.Gauge
-	temperatureBME prometheus.Gauge
-	temperatureMS  prometheus.Gauge
-	lightLevel     prometheus.Gauge
-	pressure       prometheus.Gauge
-	pressureBME    prometheus.Gauge
-	humidity       prometheus.Gauge
-	distance       prometheus.Gauge
+	wdHDPrice [hdTypeCapacitySize]prometheus.Gauge
 }
 
-func PrometheusStart() (p *PrometheusSensors) {
+func PrometheusStart(ctx context.Context) (p *PrometheusSensors) {
 	p = &PrometheusSensors{}
-	p.temperature = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "monitor_temperature",
-		Help: "The current temperature from the TMP117",
+
+	p.wdHDPrice[external14TB] = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "monitor_wd_hd_price_14tb",
+		Help: "The current Western Digital HD Price for 14TB",
+	})
+	p.wdHDPrice[external16TB] = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "monitor_wd_hd_price_16tb",
+		Help: "The current Western Digital HD Price for 16TB",
+	})
+	p.wdHDPrice[external18TB] = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "monitor_wd_hd_price_18tb",
+		Help: "The current Western Digital HD Price for 18TB",
+	})
+	p.wdHDPrice[external20TB] = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "monitor_wd_hd_price_20tb",
+		Help: "The current Western Digital HD Price for 20TB",
+	})
+	p.wdHDPrice[external22TB] = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "monitor_wd_hd_price_22tb",
+		Help: "The current Western Digital HD Price for 22TB",
 	})
 
-	p.temperatureBME = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "monitor_temperature_bme",
-		Help: "The current temperature from the BME280",
+	p.wdHDPrice[red14TB] = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "monitor_wd_hd_price_red_14tb",
+		Help: "The current Western Digital HD Price for Red 14TB",
+	})
+	p.wdHDPrice[red16TB] = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "monitor_wd_hd_price_red_16tb",
+		Help: "The current Western Digital HD Price for Red 16TB",
+	})
+	p.wdHDPrice[red18TB] = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "monitor_wd_hd_price_red_18tb",
+		Help: "The current Western Digital HD Price for Red 18TB",
+	})
+	p.wdHDPrice[red20TB] = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "monitor_wd_hd_price_red_20tb",
+		Help: "The current Western Digital HD Price for Red 20TB",
+	})
+	p.wdHDPrice[red22TB] = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "monitor_wd_hd_price_red_22tb",
+		Help: "The current Western Digital HD Price for Red 22TB",
 	})
 
-	p.temperatureMS = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "monitor_temperature_ms",
-		Help: "The current temperature from the MS5637",
-	})
-
-	p.lightLevel = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "monitor_light_level",
-		Help: "The current light level",
-	})
-
-	p.pressure = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "monitor_pressure",
-		Help: "The current pressure from the MS5637",
-	})
-
-	p.pressureBME = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "monitor_pressure_bme",
-		Help: "The current pressure from the BME280",
-	})
-
-	p.humidity = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "monitor_humidity",
-		Help: "The current humidity from the BME280",
-	})
-
-	p.distance = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "monitor_distance",
-		Help: "The current distance",
-	})
+	server := &http.Server{
+		Addr: ":2112",
+	}
 
 	http.Handle("/metrics", promhttp.Handler())
 
 	go func() {
-		http.ListenAndServe(":2112", nil)
+		if err := server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			fmt.Println("Prometheus HTTP server error: ", err)
+		}
+		fmt.Println("Prometheus HTTP server shutdown")
+	}()
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			if err := server.Shutdown(ctx); err != nil {
+				fmt.Println("Prometheus HTTP server shutdown error: ", err)
+			}
+			return
+		}
 	}()
 
 	return
 }
 
-func (p *PrometheusSensors) SetTemperature(temp float64) {
-	p.temperature.Set(temp)
-}
-
-func (p *PrometheusSensors) SetTemperatureBME(temp float64) {
-	p.temperatureBME.Set(temp)
-}
-
-func (p *PrometheusSensors) SetTemperatureMS(temp float64) {
-	p.temperatureMS.Set(temp)
-}
-
-func (p *PrometheusSensors) SetLightLevel(lightLevel float64) {
-	p.lightLevel.Set(lightLevel)
-}
-
-func (p *PrometheusSensors) SetPressure(pressure float64) {
-	p.pressure.Set(pressure)
-}
-
-func (p *PrometheusSensors) SetPressureBME(pressure float64) {
-	p.pressureBME.Set(pressure)
-}
-
-func (p *PrometheusSensors) SetHumidity(humidity float64) {
-	p.humidity.Set(humidity)
-}
-
-func (p *PrometheusSensors) SetRangeSensor(dist uint16) {
-	p.distance.Set(float64(dist))
+func (p *PrometheusSensors) SetWesternDigitalHDPrice(wd *WesternDigitalDiskPrices) {
+	if wd != nil {
+		var hdtc hdTypeCapacity = 0
+		for ; hdtc < hdTypeCapacitySize; hdtc++ {
+			if wd.pricePerTB(hdtc) > 0 {
+				p.wdHDPrice[hdtc].Set(wd.pricePerTB(hdtc))
+			}
+		}
+	}
 }

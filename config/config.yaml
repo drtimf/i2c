@@ -1,14 +1,39 @@
 homekitdeviceid: TF0X
 homekitdevicepin: 12344321
 homekitbridgename: My Bridge
+sampletime: 1
 enablelifx: true
-lifxmac: d0:73:d5:6e:33:86
-enabletmp117: false
-enableveml6030: false
-enablevl53l1x: false
-enablems5637: false
-enablebme280: false
-enablecap1203: false
-enableoled: false
+lifxmac: d0:12:ef:64:72:09
+enableoled: true
 enableled: false
-enablepir: false
+enablehdprice: false
+debugoutput: true
+
+sensors:
+#  - sensortype: tmp117
+#    name: test_tmp117
+#    i2caddress: 0x49
+#  - sensortype: ms5637
+#    name: test_ms5637
+#  - sensortype: aht10
+#    name: test_aht10
+#  - sensortype: bme280
+#    name: new_bme280
+#    i2caddress: 0x76
+#  - sensortype: veml6030
+#    name: test_veml6030
+#  - sensortype: vl53l1x
+#    name: test_vl53l1x
+#  - sensortype: ens160
+#    name: test_ens160
+#  - sensortype: pir
+#    name: test_pir
+#  - sensortype: cap1203
+#    name: light_switch
+#  - sensortype: switch
+#    name: test_switch
+#  - sensortype: potentiometer
+#    name: test_potentiometer
+#  - sensortype: bom
+#    name: test_bom
+

@@ -1,0 +1,17 @@
+FROM --platform=$BUILDPLATFORM golang:1.20 as build
+
+WORKDIR /go/src/github.com/drtimf/i2c
+COPY . .
+
+ARG TARGETOS TARGETARCH
+ENV GOOS $TARGETOS
+ENV GOARCH $TARGETARCH
+ENV CGO_ENABLED 0
+RUN go build -o /i2c && cp Orbitron-Medium.ttf /
+
+FROM alpine:latest
+
+COPY --from=build /Orbitron-Medium.ttf /Orbitron-Medium.ttf
+COPY --from=build /i2c /i2c
+ENTRYPOINT ["/i2c"]
+

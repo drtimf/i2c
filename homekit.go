@@ -2,10 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
+	"net/http"
 
 	"github.com/brutella/hap"
 	"github.com/brutella/hap/accessory"
@@ -54,7 +53,7 @@ type HomeKitBridge struct {
 	setLamp func(hue, saturation float64, brightness int) (err error)
 }
 
-func HomeKitBridgeStart(deviceID string, devicePin uint32, bridgeName string, enableTemperature bool, enableLight bool, enableOccupancy bool, enableLED bool) (b *HomeKitBridge, err error) {
+func HomeKitBridgeStart(ctx context.Context, deviceID string, devicePin uint32, bridgeName string, enableTemperature bool, enableLight bool, enableOccupancy bool, enableLED bool) (b *HomeKitBridge, err error) {
 	b = &HomeKitBridge{}
 	accessories := make([]*accessory.A, 0)
 
@@ -86,7 +85,7 @@ func HomeKitBridgeStart(deviceID string, devicePin uint32, bridgeName string, en
 		var brightness int
 
 		b.Lamp.Lightbulb.On.OnValueRemoteUpdate(func(on bool) {
-			if on == true {
+			if on {
 				fmt.Println("Lamp on")
 				if err := b.updateLamp(hue, saturation, brightness); err == nil {
 					b.Lamp.Lightbulb.On.SetValue(true)
@@ -128,22 +127,41 @@ func HomeKitBridgeStart(deviceID string, devicePin uint32, bridgeName string, en
 	xhm := CreateXHMUrl(accessory.TypeBridge, HAP_TYPE_IP, devicePin, deviceID)
 	qr, _ := GenCLIQRCode(xhm)
 	fmt.Println(qr)
+	/*
+		c := make(chan os.Signal)
+		signal.Notify(c, os.Interrupt)
+		signal.Notify(c, syscall.SIGTERM)
 
-	c := make(chan os.Signal)
-	signal.Notify(c, os.Interrupt)
-	signal.Notify(c, syscall.SIGTERM)
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			<-c
+			// Stop ivering signals.
+			signal.Stop(c)
+			// Cance the context to stop the server.
+			cancel()
+		}()
 
-	ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			server.ListenAndServe(ctx)
+		}()
+	*/
+
 	go func() {
-		<-c
-		// Stop ivering signals.
-		signal.Stop(c)
-		// Cance the context to stop the server.
-		cancel()
+		if err := server.ListenAndServe(ctx); !errors.Is(err, http.ErrServerClosed) {
+			fmt.Println("HomeKit server error: ", err)
+		}
+		fmt.Println("HomeKit server shutdown")
 	}()
 
 	go func() {
-		server.ListenAndServe(ctx)
+		select {
+		case <-ctx.Done():
+
+			//if err := server.Shutdown(ctx); err != nil {
+			//	fmt.Println("HomeKit HTTP server shutdown error: ", err)
+			//}
+			return
+		}
 	}()
 
 	return
@@ -161,19 +179,13 @@ func (b *HomeKitBridge) SetLightLevel(lightLevel float64) {
 	}
 }
 
-func (b *HomeKitBridge) SetRangeSensor(dist uint16) {
+func (b *HomeKitBridge) SetOccupancy(occupancy bool) {
 	if b.occupancy != nil {
-		if dist < 1000 {
+		if occupancy {
 			b.occupancy.OccupancySensor.OccupancyDetected.SetValue(1)
 		} else {
 			b.occupancy.OccupancySensor.OccupancyDetected.SetValue(0)
 		}
-	}
-}
-
-func (b *HomeKitBridge) SetMovement(m int) {
-	if b.occupancy != nil {
-		b.occupancy.OccupancySensor.OccupancyDetected.SetValue(m)
 	}
 }
 

@@ -13,7 +13,7 @@ type BME280 struct {
 	dev *bmxx80.Dev
 }
 
-func NewBME280() (d *BME280, err error) {
+func NewBME280(address uint8) (d *BME280, err error) {
 	d = &BME280{}
 
 	if _, err = host.Init(); err != nil {
@@ -24,7 +24,7 @@ func NewBME280() (d *BME280, err error) {
 		return
 	}
 
-	if d.dev, err = bmxx80.NewI2C(d.bus, 0x77, &bmxx80.DefaultOpts); err != nil {
+	if d.dev, err = bmxx80.NewI2C(d.bus, uint16(address), &bmxx80.DefaultOpts); err != nil {
 		return
 	}
 
@@ -38,8 +38,7 @@ func (d *BME280) Read() (temperature float64, pressure float64, humidity float64
 	}
 
 	temperature = e.Temperature.Celsius()
-	pressure = float64(e.Pressure)/float64(physic.Pascal * 100)
-	humidity = float64(e.Humidity)/float64(physic.PercentRH)
+	pressure = float64(e.Pressure) / float64(physic.Pascal*100)
+	humidity = float64(e.Humidity) / float64(physic.PercentRH)
 	return
 }
-
