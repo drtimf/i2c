@@ -1,8 +1,11 @@
 package main
 
+import "fmt"
+
 type Sensor interface {
 	Update()
 	Summary() string
+	Details() string
 }
 
 type SensorManagement struct {
@@ -37,6 +40,14 @@ func (sm *SensorManagement) Summary() (summary string) {
 		summary += s.Summary()
 	}
 
+	return
+}
+
+func (sm *SensorManagement) Details() (summary string) {
+	summary = ""
+	for _, s := range sm.sensors {
+		summary += fmt.Sprintf(" - %s\n", s.Details())
+	}
 	return
 }
 

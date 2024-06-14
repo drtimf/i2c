@@ -39,3 +39,7 @@ func (s *SensorCAP1203) Update() {
 func (s *SensorCAP1203) Summary() string {
 	return fmt.Sprintf("%s: %t,%t,%t", s.name, s.status[0], s.status[1], s.status[2])
 }
+
+func (s *SensorCAP1203) Details() string {
+	return fmt.Sprintf("%s - CAP1203 Capacitive Touch Sensor: %t,%t,%t", s.name, s.status[0], s.status[1], s.status[2])
+}

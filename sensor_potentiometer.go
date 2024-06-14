@@ -33,6 +33,8 @@ func NewSensorPotentiometer(name string, i2cAddress uint8) (s *SensorPotentiomet
 		return
 	}
 
+	s.pot.SetLED(false)
+
 	s.value, err = s.pot.ReadRawValue()
 
 	return
@@ -55,4 +57,8 @@ func (s *SensorPotentiometer) Update() {
 
 func (s *SensorPotentiometer) Summary() string {
 	return fmt.Sprintf("%s: %t,%d", s.name, s.changed, s.value)
+}
+
+func (s *SensorPotentiometer) Details() string {
+	return fmt.Sprintf("%s - Potentiometer: %t,%d", s.name, s.changed, s.value)
 }

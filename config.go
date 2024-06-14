@@ -10,6 +10,10 @@ type SensorConfiguration struct {
 	SensorType string
 	Name       string
 	I2CAddress uint8
+	Server     string
+	DeviceType string
+	Serial     string
+	Password   string
 }
 
 type I2cConfiguration struct {

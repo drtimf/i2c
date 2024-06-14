@@ -68,3 +68,7 @@ func (s *SensorBME280) Update() {
 func (s *SensorBME280) Summary() string {
 	return fmt.Sprintf("%s: %.2f C, %.2f hPa, %.2f rH", s.name, s.temperature, s.pressure, s.humidity)
 }
+
+func (s *SensorBME280) Details() string {
+	return fmt.Sprintf("%s - BME280 temperature, pressume and humidity sensor: %.2f C, %.2f hPa, %.2f rH", s.name, s.temperature, s.pressure, s.humidity)
+}

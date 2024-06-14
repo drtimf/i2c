@@ -112,6 +112,8 @@ func main() {
 			newSensor, err = NewSensorPIR(s.Name, s.I2CAddress)
 		case "bom":
 			newSensor, err = NewSensorBOM(s.Name, config.DebugOutput)
+		case "dysonhotcool":
+			newSensor, err = NewSensorDysonHotCool(s.Name, s.Server, s.DeviceType, s.Serial, s.Password, config.DebugOutput)
 		default:
 			fmt.Printf("ERROR: Unknown sensor type \"%s\"\n", s.SensorType)
 			return
@@ -194,6 +196,9 @@ func main() {
 			fmt.Println(err)
 		}
 	}
+
+	sensorManagement.UpdateSensors()
+	println(sensorManagement.Details())
 
 	for {
 		/*

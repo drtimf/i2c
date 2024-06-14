@@ -58,3 +58,7 @@ func (s *SensorBOM) Update() {
 func (s *SensorBOM) Summary() string {
 	return fmt.Sprintf("%s: %.2f C, %.0f-%.0f kph from %.1f", s.name, s.scanner.AirTemp, s.scanner.WindSpeed, s.scanner.WindGust, s.scanner.WindDir)
 }
+
+func (s *SensorBOM) Details() string {
+	return fmt.Sprintf("%s - Australian BOM scraper: %.2f C, %.0f-%.0f kph from %.1f", s.name, s.scanner.AirTemp, s.scanner.WindSpeed, s.scanner.WindGust, s.scanner.WindDir)
+}

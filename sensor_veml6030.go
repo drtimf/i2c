@@ -49,3 +49,7 @@ func (s *SensorVEML6030) Update() {
 func (s *SensorVEML6030) Summary() string {
 	return fmt.Sprintf("%s: %.2f lux", s.name, s.lightLevel)
 }
+
+func (s *SensorVEML6030) Details() string {
+	return fmt.Sprintf("%s - VEML6030 Ambient Light Sensor: %.2f lux", s.name, s.lightLevel)
+}

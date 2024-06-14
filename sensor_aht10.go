@@ -59,3 +59,7 @@ func (s *SensorAHT10) Update() {
 func (s *SensorAHT10) Summary() string {
 	return fmt.Sprintf("%s: %.2f C, %.2f rH", s.name, s.temperature, s.humidity)
 }
+
+func (s *SensorAHT10) Details() string {
+	return fmt.Sprintf("%s - AHT10 temperature and humidity: %.2f C, %.2f rH", s.name, s.temperature, s.humidity)
+}

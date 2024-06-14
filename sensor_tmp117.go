@@ -51,3 +51,7 @@ func (s *SensorTMP117) Update() {
 func (s *SensorTMP117) Summary() string {
 	return fmt.Sprintf("%s: %.2f C", s.name, s.temperature)
 }
+
+func (s *SensorTMP117) Details() string {
+	return fmt.Sprintf("%s - TMP117 Precision Temperature Sensor: %.2f C", s.name, s.temperature)
+}

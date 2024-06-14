@@ -26,6 +26,8 @@ func NewSensorSwitch(name string, i2cAddress uint8) (s *SensorSwitch, err error)
 		return
 	}
 
+	s.sw.SetLED(false)
+
 	return
 }
 
@@ -43,4 +45,8 @@ func (s *SensorSwitch) Update() {
 
 func (s *SensorSwitch) Summary() string {
 	return fmt.Sprintf("%s: %t,%t", s.name, s.wasPressed, s.wasDoublePressed)
+}
+
+func (s *SensorSwitch) Details() string {
+	return fmt.Sprintf("%s - Switch: %t,%t", s.name, s.wasPressed, s.wasDoublePressed)
 }

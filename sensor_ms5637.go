@@ -60,3 +60,7 @@ func (s *SensorMS5637) Update() {
 func (s *SensorMS5637) Summary() string {
 	return fmt.Sprintf("%s: %.2f hPa, %.2f C", s.name, s.pressure, s.temperature)
 }
+
+func (s *SensorMS5637) Details() string {
+	return fmt.Sprintf("%s - MS5637 Pressure Sensor: %.2f hPa, %.2f C", s.name, s.pressure, s.temperature)
+}

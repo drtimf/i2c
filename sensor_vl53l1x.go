@@ -49,3 +49,7 @@ func (s *SensorVL53L1X) Update() {
 func (s *SensorVL53L1X) Summary() string {
 	return fmt.Sprintf("%s: %d mm", s.name, s.distance)
 }
+
+func (s *SensorVL53L1X) Details() string {
+	return fmt.Sprintf("%s - VL53L1X Distance Sensor: %d mm", s.name, s.distance)
+}

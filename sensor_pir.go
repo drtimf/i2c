@@ -13,7 +13,8 @@ type SensorPIR struct {
 	name              string
 	movementTriggered bool
 	movement          bool
-	promMovement      prometheus.Counter
+	promMovement      prometheus.Gauge
+	promMovementCount prometheus.Counter
 }
 
 func NewSensorPIR(name string, i2cAddress uint8) (s *SensorPIR, err error) {
@@ -25,7 +26,12 @@ func NewSensorPIR(name string, i2cAddress uint8) (s *SensorPIR, err error) {
 		i2cAddress = piicodev.QwiicPIRAddress
 	}
 
-	s.promMovement = promauto.NewCounter(prometheus.CounterOpts{
+	s.promMovement = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: name + "_movement",
+		Help: "Movement detected",
+	})
+
+	s.promMovementCount = promauto.NewCounter(prometheus.CounterOpts{
 		Name: name + "_movement_count",
 		Help: "Number of movement events recorded by the PIR sensor",
 	})
@@ -68,10 +74,17 @@ func (s *SensorPIR) Update() {
 	s.movement = s.movementTriggered
 	s.movementTriggered = false
 	if s.movement {
-		s.promMovement.Add(1)
+		s.promMovement.Set(1)
+		s.promMovementCount.Inc()
+	} else {
+		s.promMovement.Set(0)
 	}
 }
 
 func (s *SensorPIR) Summary() string {
 	return fmt.Sprintf("%s: %t", s.name, s.movement)
+}
+
+func (s *SensorPIR) Details() string {
+	return fmt.Sprintf("%s - SparkFun Electronics Qwiic PIR: %t", s.name, s.movement)
 }

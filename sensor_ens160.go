@@ -88,3 +88,7 @@ func (s *SensorENS160) Update() {
 func (s *SensorENS160) Summary() string {
 	return fmt.Sprintf("%s: [%s], %d (%s) AQI, %d TVOC, %d ppm (%s) eCO2", s.name, s.operation, s.aqi, s.aqiRating, s.tvoc, s.eco2, s.eco2Rating)
 }
+
+func (s *SensorENS160) Details() string {
+	return fmt.Sprintf("%s - ENS160 Air Quality Sensor: [%s], %d (%s) AQI, %d TVOC, %d ppm (%s) eCO2", s.name, s.operation, s.aqi, s.aqiRating, s.tvoc, s.eco2, s.eco2Rating)
+}
