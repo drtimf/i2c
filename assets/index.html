@@ -1,0 +1,112 @@
+<html>
+	<head>
+		<title>My Home</title>
+		<link rel="stylesheet" href="/public/assets/bootstrap.min.css"></link>
+		<script src="/public/assets/jquery-3.7.1.min.js"></script>
+		<script src="/public/assets/bootstrap.bundle.min.js"></script>
+	</head>
+	<body>
+		<div class="container">
+			<h1>Lifx Lights</h1>
+			<div id="bulbTable"></div>
+			<button class="btn btn-primary refresh-button">Refresh</button>
+		</div>
+
+		<script>
+			function updateLifxList() {
+				$.getJSON('/lifx/bulbs', function(bulbs) {
+					$("#bulbTable").empty();
+					bulbs.sort((a,b) => (a.Name > b.Name) ? 1 : ((b.Name > a.Name) ? -1 : 0))
+
+					bulbs.forEach(function(bulb) {
+						newTr = $('<div>', { 'class':'row' });
+						newTr.append($('<div>', { 'class':'col', 'text':bulb.Name }));
+						buttons = $('<div>', { 'class':'col' });
+						buttonGroup = $('<div>', { 'class':'btn-group btn-group-lg', 'role':'group' });
+						
+						if (bulb.Power == true) {
+							onBtn = 'btn-success'
+							offBtn = 'btn-light'
+						} else {
+							onBtn = 'btn-light'
+							offBtn = 'btn-success'
+						}
+
+						buttonGroup.append($('<button>', { 'class':'btn bulb-button ' + offBtn, 'bulbId':bulb.MACAddress, 'bulbPower':'off', 'text':'OFF' }));
+						buttonGroup.append($('<button>', { 'class':'btn bulb-button ' + onBtn, 'bulbId':bulb.MACAddress, 'bulbPower':'on', 'text':'ON' }));
+						buttons.append(buttonGroup);
+						newTr.append(buttons);
+
+						newTr.append($('<div>', { 'class':'col', 'text':'('+bulb.Color.Hue+', '+bulb.Color.Saturation+', '+bulb.Color.Brightness+', '+bulb.Color.Kelvin+')'}));
+
+						switchCol = $('<div>', { 'class':'col form-check form-switch' });
+						switchToggle = $('<input>', {'class':'form-check-input power-switch','bulbId':bulb.MACAddress,'type':'checkbox','role':'switch'})
+						if (bulb.Power == true) {
+							switchToggle.attr('checked','')
+						}
+						switchCol.append(switchToggle)
+						newTr.append(switchCol)
+
+						$("#bulbTable").append(newTr);
+					});
+
+					$('.bulb-button').on('click', bulbControlLifx);
+					$('.power-switch').on('click', bulbPowerSwitch);
+				});
+			}
+
+			function bulbPowerSwitch(e) {
+				$.ajax({
+					type: 'POST',
+					url: '/lifx/bulb/' + e.target.getAttribute("bulbId"),
+					data: 'power=' + e.target.checked,
+					success: function(data) {
+						updateLifxList()
+					},
+					error: function(request, error) {
+						alert("Request: "+JSON.stringify(request));
+					}
+				});
+			}
+
+			function bulbControlLifx(e) {
+				$.ajax({
+					type: 'POST',
+					url: '/lifx/bulb/' + e.target.getAttribute("bulbId"),
+					data: 'power=' + e.target.getAttribute("bulbPower"),
+					success: function(data) {
+						updateLifxList()
+					},
+					error: function(request, error) {
+						alert("Request: "+JSON.stringify(request));
+					}
+				});
+			}
+
+			function refreshLifx(e) {
+				$('.refresh-button').prop('disabled', true);
+				$.ajax({
+					type: 'POST',
+					url: '/lifx/refresh',
+					success: function(data) {
+						updateLifxList();
+						$('.refresh-button').prop('disabled', false);
+					},
+					error: function(request, error) {
+						alert("Request: "+JSON.stringify(request));
+						$('.refresh-button').prop('disabled', false);
+					}
+				});
+			}
+
+			$(document).ready(function() {
+				updateLifxList();
+
+				$('.refresh-button').on('click', refreshLifx);
+
+				setInterval(updateLifxList, 2500);
+			});
+		</script>
+	</body>
+</html>
+

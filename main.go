@@ -2,14 +2,20 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"math"
+	"net/http"
 	"time"
 
 	// "i2c/go-piicodev.local"
 	"github.com/2tvenom/golifx"
 	"github.com/drtimf/go-piicodev"
+	"github.com/gin-gonic/gin"
 )
+
+//go:embed assets/*
+var f embed.FS
 
 func PrintState(device string, status bool) {
 	if status {
@@ -69,6 +75,23 @@ func HSV2RGB(hue, saturation, value float64) (red, green, blue float64) {
 	return
 }
 
+func NewMainPageRouter() {
+	gin.SetMode(gin.ReleaseMode)
+
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.GET("/", func(c *gin.Context) {
+		file, _ := f.ReadFile("assets/index.html")
+		c.Data(http.StatusOK, "text/html", file)
+	})
+
+	router.StaticFS("/public", http.FS(f))
+
+	// router.StaticFile("/", "./assets/index.html")
+	// router.Static("/assets", "./assets")
+	http.Handle("/", router.Handler())
+}
+
 func main() {
 	var err error
 	ctx := context.Background()
@@ -80,6 +103,8 @@ func main() {
 	}
 
 	prom := PrometheusStart(ctx)
+
+	NewMainPageRouter()
 
 	sensorManagement := NewSensorManagement()
 
@@ -139,25 +164,20 @@ func main() {
 		return
 	}
 
-	var bulb *golifx.Bulb = nil
+	var bulb *LifxBulb
 
 	PrintState("Lifx bulb", config.EnableLifx)
 	if config.EnableLifx {
-		var bulbs []*golifx.Bulb
-		if bulbs, err = golifx.LookupBulbs(); err == nil && len(bulbs) > 0 {
-			bulb = bulbs[0]
+		lbs := NewLifxBulbState()
 
-			for _, b := range bulbs {
-				fmt.Println(b)
-				if b.MacAddress() == config.LifxMAC {
-					bulb = b
-					fmt.Println(">>> Found", config.LifxMAC)
-				}
-			}
-
-			fmt.Println(">>> Using", config.LifxMAC)
-			fmt.Println(bulb.String())
+		fmt.Println(">>> Looking for Lifx", config.LifxMAC)
+		if bulb, _ = lbs.FindBulbByMAC(config.LifxMAC); bulb != nil {
+			fmt.Println(bulb.bulb.String())
+		} else {
+			fmt.Println("Not found")
 		}
+
+		NewBulbLifxRouter(lbs)
 	}
 
 	var oled *OLEDDisplay = nil
@@ -261,38 +281,37 @@ func main() {
 
 		powerState := "n/a"
 		if bulb != nil {
-			var bulbState *golifx.BulbState
-			if bulbState, err = bulb.GetColorState(); err == nil {
-				if bulbState.Power {
+			if err = bulb.Refresh(); err == nil {
+				if bulb.Power {
 					powerState = "on "
 				} else {
 					powerState = "off "
 				}
 
-				powerState += fmt.Sprintf("(H: %d, S: %d B: %d, K: %d)", bulbState.Color.Hue, bulbState.Color.Saturation, bulbState.Color.Brightness, bulbState.Color.Kelvin)
+				powerState += fmt.Sprintf("(H: %d, S: %d B: %d, K: %d)", bulb.Color.Hue, bulb.Color.Saturation, bulb.Color.Brightness, bulb.Color.Kelvin)
 
 				if pressType, ok := sensorManagement.GetSwitchPress(); ok {
 					if pressType == 1 {
 						fmt.Println("Light on")
-						bulb.SetColorState(&golifx.HSBK{
+						bulb.bulb.SetColorState(&golifx.HSBK{
 							Hue:        5461,
 							Saturation: 0,
 							Brightness: 65535,
 							Kelvin:     4000,
 						}, 0)
-						bulb.SetPowerState(true)
+						bulb.bulb.SetPowerState(true)
 					}
 
 					if pressType == 2 {
 						fmt.Println("Light off")
-						bulb.SetPowerState(false)
+						bulb.bulb.SetPowerState(false)
 					}
 				}
 
 				if changed, value, ok := sensorManagement.GetPotentiometer(); ok {
 					if changed {
 						fmt.Println("Light ", value)
-						bulb.SetColorState(&golifx.HSBK{
+						bulb.bulb.SetColorState(&golifx.HSBK{
 							Hue:        5461,
 							Saturation: 0,
 							Brightness: value << 6,
@@ -304,29 +323,29 @@ func main() {
 				if status, ok := sensorManagement.GetCapSensorStatus(); ok {
 					if status[0] {
 						fmt.Println("Light off")
-						bulb.SetPowerState(false)
+						bulb.bulb.SetPowerState(false)
 					}
 
 					if status[1] {
 						fmt.Println("Low light")
-						bulb.SetColorState(&golifx.HSBK{
+						bulb.bulb.SetColorState(&golifx.HSBK{
 							Hue:        5461,
 							Saturation: 0,
 							Brightness: 47185,
 							Kelvin:     2000,
 						}, 0)
-						bulb.SetPowerState(true)
+						bulb.bulb.SetPowerState(true)
 					}
 
 					if status[2] {
 						fmt.Println("Full light")
-						bulb.SetColorState(&golifx.HSBK{
+						bulb.bulb.SetColorState(&golifx.HSBK{
 							Hue:        5461,
 							Saturation: 0,
 							Brightness: 65535,
 							Kelvin:     4000,
 						}, 0)
-						bulb.SetPowerState(true)
+						bulb.bulb.SetPowerState(true)
 					}
 				}
 			}

@@ -18,9 +18,9 @@ const DYSON_MESSAGE_ENVIRONMENTAL_CURRENT_SENSOR_DATA = "ENVIRONMENTAL-CURRENT-S
 const DYSON_MESSAGE_STATE_CHANGE = "STATE-CHANGE"
 
 type DysonMessageEnvironmentalSensorData struct {
-	Message string            `json:"msg"`
-	Time    time.Time         `json:"time"`
-	Data    map[string]string `json:"data"`
+	Message string `json:"msg"`
+	//Time    time.Time         `json:"time"`
+	Data map[string]string `json:"data"`
 }
 
 func (m *DysonMessageEnvironmentalSensorData) GetDataFloat(n string) (f float64) {
@@ -95,7 +95,7 @@ func (s *SensorDysonHotCool) onMessageReceived(client mqtt.Client, message mqtt.
 	var msg DysonMessageEnvironmentalSensorData
 
 	if err = json.Unmarshal(message.Payload(), &msg); err != nil {
-		fmt.Println("ERROR: Bad JSON MQTT payload", err)
+		fmt.Println("ERROR: Bad JSON MQTT payload", string(message.Payload()), err)
 		return
 	}
 

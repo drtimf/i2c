@@ -16,3 +16,4 @@
 
 config/bridge
 i2c
+i2c-linux-arm
